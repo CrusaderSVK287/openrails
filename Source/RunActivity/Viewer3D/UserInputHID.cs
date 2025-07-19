@@ -13,29 +13,57 @@ namespace Orts.Viewer3D
     {
         private readonly HIDControllerDevice Device;
 
+        public ExternalDeviceCabControl Throttle = new ExternalDeviceCabControl();       // 0 to 100
+
         public UserInputHIDState(Game game)
         {
             Device = HIDControllerDevice.Instance;
-
+            
             // Display information that the device is not enable, probably failed to connect
             if (Device is null || !Device.Initialize())
             {
                 MessageBox.Show("HID Controller not enabled. Please check your settings.", "HID Controller Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+
+            CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = Throttle;
         }
         public void Update()
         {
             if (Device is null || !Device.Enabled)
             {
-                return; // Device not initialized or not enabled
+                return; // Device not connected or not enabled
             }
             HIDDeviceReport report = Device.ReadInput();
+            Trace.TraceInformation($"HID Input: ButtonState={report.ButtonState}, AxisThrottle={report.AxisThrottle}");
+
+            Throttle.Value = Percentage(report.AxisThrottle, 4096) / 100; // MSTSLocomitveViewer.cs:253 for some reason does *100 again
+
+            foreach (var command in Commands.Keys)
+            {
+                var buttonList = Commands[command];
+                foreach (var button in buttonList)
+                {
+                    if (button is HIDButton rd && (Active || command == UserCommand.GameExternalCabController))
+                    {
+                        rd.Update(report.ButtonState);
+                    }
+                }
+            }
         }
         public void Activate()
         {
     
         }
+        private static float Percentage(UInt16 x, UInt16 max)
+        {
+            if (max == 0)
+                return 0; // Avoid division by zero
+
+            float rv = ((float)x / max) * 100f;
+            return rv;
+        }
+
 
         private static float Percentage(float x, float x0, float x100)
         {
@@ -69,36 +97,6 @@ namespace Orts.Viewer3D
             return p;
         }
 
-        private (byte, byte) UpdateCutOff((byte, byte) range, byte cutOff)
-        {
-            if (range.Item1 < range.Item2)
-            {
-                range.Item1 += cutOff;
-                range.Item2 -= cutOff;
-            }
-            else
-            {
-                range.Item2 += cutOff;
-                range.Item1 -= cutOff;
-            }
-            return range;
-        }
-
-        private (byte, byte, byte) UpdateCutOff((byte, byte, byte) range, byte cutOff)
-        {
-            if (range.Item1 < range.Item3)
-            {
-                range.Item1 += cutOff;
-                range.Item3 -= cutOff;
-            }
-            else
-            {
-                range.Item3 += cutOff;
-                range.Item1 -= cutOff;
-            }
-            return range;
-        }
-
         public bool Active { get; private set; }
     }
 
@@ -111,9 +109,9 @@ namespace Orts.Viewer3D
             Index = 8 + button / 8;
             Mask = (byte)(1 << (button % 8));
         }
-        public void Update(byte[] data)
+        public void Update(bool data)
         {
-            IsDown = (data[Index] & Mask) != 0;
+            IsDown = data;
         }
     }
 

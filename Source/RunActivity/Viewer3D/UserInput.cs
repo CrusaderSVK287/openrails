@@ -168,6 +168,9 @@ namespace Orts.Viewer3D
             if (ComposingMessage == true) return false;
             if (RDState != null && RDState.IsReleased(command))
                 return true;
+            if (HIDState != null && HIDState.IsReleased(command))
+                return true;
+
             var setting = InputSettings.Commands[(int)command];
             return (!setting.IsKeyDown(KeyboardState) && setting.IsKeyDown(LastKeyboardState)) ||
                 SwitchPanelModule.IsReleased(command);
@@ -178,6 +181,9 @@ namespace Orts.Viewer3D
             if (ComposingMessage == true) return false;
             if (RDState != null && RDState.IsDown(command))
                 return true;
+            if (HIDState != null && HIDState.IsDown(command))
+                return true;
+
             var setting = InputSettings.Commands[(int)command];
             return setting.IsKeyDown(KeyboardState);
         }

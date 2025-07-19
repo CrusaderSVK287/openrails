@@ -88,7 +88,6 @@ namespace ORTS.Common.Input
                     ButtonState = (inputReport[3] & 0x01) == 1,
                     AxisThrottle = (UInt16)(inputReport[1] | (inputReport[2] << 8))
                 };
-                Trace.TraceInformation($"HID Input: ButtonState={report.ButtonState}, AxisThrottle={report.AxisThrottle}");
                 return report;
             }
             catch (Exception e)
