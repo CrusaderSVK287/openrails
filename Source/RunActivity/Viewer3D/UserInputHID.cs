@@ -5,6 +5,7 @@ using ORTS.Settings;
 using Orts.Viewer3D.Processes;
 using ORTS.Common.Input;
 using System.Windows.Forms;
+using static Swan.Terminal;
 
 
 namespace Orts.Viewer3D
@@ -13,7 +14,12 @@ namespace Orts.Viewer3D
     {
         private readonly HIDControllerDevice Device;
 
+        //         [GetString("Display Track Monitor Window")] DisplayTrackMonitorWindow,
+
         public ExternalDeviceCabControl Throttle = new ExternalDeviceCabControl();       // 0 to 100
+        public readonly byte[] UserCommands = new byte[Enum.GetNames(typeof(UserCommand)).Length];
+        ExternalDeviceButton TrackMonitor;
+
 
         public UserInputHIDState(Game game)
         {
@@ -25,6 +31,19 @@ namespace Orts.Viewer3D
                 MessageBox.Show("HID Controller not enabled. Please check your settings.", "HID Controller Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+
+            /*for (int i = 0; i < 1; i++)
+            {
+                var userCommand = (UserCommand)i;
+                byte button = UserCommands[i];
+                if (button >= 0 && button != byte.MaxValue)
+                {
+                    RegisterCommand(userCommand, new HIDButton(button));
+                }
+            }*/
+
+            TrackMonitor = new ExternalDeviceButton();
+            RegisterCommand(UserCommand.DisplayTrackMonitorWindow, TrackMonitor);
 
             CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = Throttle;
         }
@@ -38,6 +57,8 @@ namespace Orts.Viewer3D
             Trace.TraceInformation($"HID Input: ButtonState={report.ButtonState}, AxisThrottle={report.AxisThrottle}");
 
             Throttle.Value = Percentage(report.AxisThrottle, 4096) / 100; // MSTSLocomitveViewer.cs:253 for some reason does *100 again
+
+            TrackMonitor.IsDown = report.ButtonState;
 
             foreach (var command in Commands.Keys)
             {
