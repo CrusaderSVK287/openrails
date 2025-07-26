@@ -16,14 +16,12 @@ namespace ORTS.Common.Input
     public class HIDControllerDevice
     {
         private static HIDControllerDevice instance;
-
-        public HidStream Stream { get; private set; }
         public HidDevice Device { get; private set; }
 
         private const int VendorId = 0xCAFE;
         private const int ProductId = 0x4000;
 
-        public bool Enabled { set; get; } = false;
+        public bool Enabled { private set; get; } = false;
 
         public static HIDControllerDevice Instance
         {
@@ -52,15 +50,8 @@ namespace ORTS.Common.Input
                 return false;
             }
 
-            if (!Device.TryOpen(out HidStream stream))
-            {
-                return false;
-            }
 
-            Stream = stream;
-            Stream.ReadTimeout = 3000;
             Enabled = true;
-
             return true;
         }
 
@@ -68,7 +59,7 @@ namespace ORTS.Common.Input
         {
             byte[] inputReport = new byte[HIDDeviceReport.ReportSize];
 
-            if (!Enabled || Stream == null)
+            if (!Enabled)
             {
                 // Dont raise an exception. In this case the device is probably just not active
                 return null;
@@ -76,19 +67,28 @@ namespace ORTS.Common.Input
 
             try
             {
-                int bytesRead = Stream.Read(inputReport, 0, HIDDeviceReport.ReportSize);
-
-                if (bytesRead != HIDDeviceReport.ReportSize)
+                if (!Device.TryOpen(out HidStream stream))
                 {
-                    throw new IOException($"Unexpected report size: {bytesRead} instead of {HIDDeviceReport.ReportSize}");
+                    return null;
                 }
 
-                HIDDeviceReport report = new HIDDeviceReport
+                using (stream)
                 {
-                    ButtonState = (inputReport[3] & 0x01) == 1,
-                    AxisThrottle = (UInt16)(inputReport[1] | (inputReport[2] << 8))
-                };
-                return report;
+                    int bytesRead = stream.Read(inputReport, 0, HIDDeviceReport.ReportSize);
+
+                    if (bytesRead != HIDDeviceReport.ReportSize)
+                    {
+                        throw new IOException($"Unexpected report size: {bytesRead} instead of {HIDDeviceReport.ReportSize}");
+                    }
+
+                    HIDDeviceReport report = new HIDDeviceReport
+                    {
+                        ButtonState = (inputReport[3] & 0x01) == 1,
+                        AxisThrottle = (UInt16)(inputReport[1] | (inputReport[2] << 8))
+                    };
+
+                    return report;
+                }
             }
             catch (Exception e)
             {
