@@ -12,13 +12,14 @@ namespace Orts.Viewer3D
 {
     public class UserInputHIDState : ExternalDeviceState
     {
+        public bool Active { get; private set; }
         private readonly HIDControllerDevice Device;
 
         //         [GetString("Display Track Monitor Window")] DisplayTrackMonitorWindow,
 
         public ExternalDeviceCabControl Throttle = new ExternalDeviceCabControl();       // 0 to 100
         public readonly byte[] UserCommands = new byte[Enum.GetNames(typeof(UserCommand)).Length];
-        ExternalDeviceButton TrackMonitor;
+        HIDSwitch TrackMonitor;
 
 
         public UserInputHIDState(Game game)
@@ -32,45 +33,27 @@ namespace Orts.Viewer3D
                 return;
             }
 
-            /*for (int i = 0; i < 1; i++)
-            {
-                var userCommand = (UserCommand)i;
-                byte button = UserCommands[i];
-                if (button >= 0 && button != byte.MaxValue)
-                {
-                    RegisterCommand(userCommand, new HIDButton(button));
-                }
-            }*/
-
-            TrackMonitor = new ExternalDeviceButton();
+            TrackMonitor = new HIDSwitch();
             RegisterCommand(UserCommand.DisplayTrackMonitorWindow, TrackMonitor);
 
             CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = Throttle;
+
+            Active = true;
         }
         public void Update()
         {
-            if (Device is null || !Device.Enabled)
+            if (Device is null || !Device.Enabled || !Active)
             {
                 return; // Device not connected or not enabled
             }
             HIDDeviceReport report = Device.ReadInput();
-            Trace.TraceInformation($"HID Input: ButtonState={report.ButtonState}, AxisThrottle={report.AxisThrottle}");
 
+            // Analog controls
             Throttle.Value = Percentage(report.AxisThrottle, 4096) / 100; // MSTSLocomitveViewer.cs:253 for some reason does *100 again
 
-            TrackMonitor.IsDown = report.ButtonState;
-
-            foreach (var command in Commands.Keys)
-            {
-                var buttonList = Commands[command];
-                foreach (var button in buttonList)
-                {
-                    if (button is HIDButton rd && (Active || command == UserCommand.GameExternalCabController))
-                    {
-                        rd.Update(report.ButtonState);
-                    }
-                }
-            }
+            // HID Switches
+            TrackMonitor.Update(report.ButtonState);
+            // HID Buttons
         }
         public void Activate()
         {
@@ -118,21 +101,35 @@ namespace Orts.Viewer3D
             return p;
         }
 
-        public bool Active { get; private set; }
     }
 
     public class HIDButton : ExternalDeviceButton
     {
-        int Index;
-        byte Mask;
-        public HIDButton(byte button)
+        public HIDButton() { }
+        public void Update(bool value)
         {
-            Index = 8 + button / 8;
-            Mask = (byte)(1 << (button % 8));
+            IsDown = value;
         }
-        public void Update(bool data)
+    }
+
+    // Switches work identical to buttons but they fire the commands in different ways.
+    // Buttons fire the commands when pressed, switches once when turned on, and once when turned off.
+    // Since OR doesnt (or I couldnt find) have support for switches, I emulate them by changing the
+    // IsDown property of a button to true whenever the switch changes its state and 
+    // setting IsDown to false every update. This ensures that turning a switch up and down is seen
+    // as pressing a button twice
+    public class HIDSwitch : ExternalDeviceButton
+    {
+        private bool isFlicked = false;
+        public HIDSwitch() { }
+        public void Update(bool value)
         {
-            IsDown = data;
+            IsDown = false;
+            if (isFlicked != value)
+            {
+                IsDown = true;
+                isFlicked = value;
+            }
         }
     }
 
