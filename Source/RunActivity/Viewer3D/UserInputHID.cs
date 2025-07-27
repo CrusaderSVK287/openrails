@@ -20,7 +20,7 @@ namespace Orts.Viewer3D
         public ExternalDeviceCabControl Throttle = new ExternalDeviceCabControl();       // 0 to 100
         public readonly byte[] UserCommands = new byte[Enum.GetNames(typeof(UserCommand)).Length];
         HIDSwitch TrackMonitor;
-
+        HIDButton ButtonGamePause;
 
         public UserInputHIDState(Game game)
         {
@@ -33,11 +33,24 @@ namespace Orts.Viewer3D
                 return;
             }
 
+            // Switches
             TrackMonitor = new HIDSwitch();
-            RegisterCommand(UserCommand.DisplayTrackMonitorWindow, TrackMonitor);
+            //RegisterCommand(UserCommand.DisplayTrackMonitorWindow, TrackMonitor);                     // F4 window
+            //RegisterCommand(UserCommand.DisplayNextStationWindow, TrackMonitor);                        // F10 window
 
-            CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = Throttle;
+            // Buttons
+            ButtonGamePause = new HIDButton();
+            //RegisterCommand(UserCommand.GamePauseMenu, ButtonGamePause);                              // Pause / close activity window
+            //TODO: not yet sure, but I probably want 3-state switch and simulate the button clicking. But can probably be done from rpi
+            RegisterCommand(UserCommand.ControlHeadlightIncrease, ButtonGamePause);
 
+            //CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = Throttle;       // Throttle
+            //TODO: Direction will be digital, but ORTS implements it as analog.
+            //CabControls[(new CabViewControlType(CABViewControlTypes.DIRECTION), -1)] = Throttle;      // Direction
+            //CabControls[(new CabViewControlType(CABViewControlTypes.ENGINE_BRAKE), -1)] = Throttle;   // Engine break
+            // TODO: Cannot go to emergency
+            CabControls[(new CabViewControlType(CABViewControlTypes.TRAIN_BRAKE), -1)] = Throttle;      // Train break
+            
             Active = true;
         }
         public void Update()
@@ -48,12 +61,15 @@ namespace Orts.Viewer3D
             }
             HIDDeviceReport report = Device.ReadInput();
 
+            if (report is null) return;
+
             // Analog controls
             Throttle.Value = Percentage(report.AxisThrottle, 4096) / 100; // MSTSLocomitveViewer.cs:253 for some reason does *100 again
 
             // HID Switches
-            TrackMonitor.Update(report.ButtonState);
+            //TrackMonitor.Update(report.ButtonState);
             // HID Buttons
+            ButtonGamePause.Update(report.ButtonState);
         }
         public void Activate()
         {
