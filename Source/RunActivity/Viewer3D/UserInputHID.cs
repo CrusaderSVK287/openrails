@@ -37,19 +37,25 @@ namespace Orts.Viewer3D
             TrackMonitor = new HIDSwitch();
             //RegisterCommand(UserCommand.DisplayTrackMonitorWindow, TrackMonitor);                     // F4 window
             //RegisterCommand(UserCommand.DisplayNextStationWindow, TrackMonitor);                        // F10 window
-
+            //RegisterCommand(UserCommand.ControlPantograph1, TrackMonitor);                            // pantograph1
+            //RegisterCommand(UserCommand.ControlPantograph2, TrackMonitor);                              // pantograph2
             // Buttons
             ButtonGamePause = new HIDButton();
             //RegisterCommand(UserCommand.GamePauseMenu, ButtonGamePause);                              // Pause / close activity window
             //TODO: not yet sure, but I probably want 3-state switch and simulate the button clicking. But can probably be done from rpi
-            RegisterCommand(UserCommand.ControlHeadlightIncrease, ButtonGamePause);
+            //RegisterCommand(UserCommand.ControlHeadlightIncrease, ButtonGamePause);
+            //RegisterCommand(UserCommand.ControlHeadlightDecrease, ButtonGamePause);
+
+            // Camera controls using 3 state switch... probably will emulate buttons depending on input
+            //RegisterCommand(UserCommand.CameraOutsideFront, ButtonGamePause);
+            //RegisterCommand(UserCommand.CameraCab, ButtonGamePause);
+            //RegisterCommand(UserCommand.CameraSpecialTracksidePoint, ButtonGamePause);
 
             //CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = Throttle;       // Throttle
-            //TODO: Direction will be digital, but ORTS implements it as analog.
             //CabControls[(new CabViewControlType(CABViewControlTypes.DIRECTION), -1)] = Throttle;      // Direction
             //CabControls[(new CabViewControlType(CABViewControlTypes.ENGINE_BRAKE), -1)] = Throttle;   // Engine break
-            // TODO: Cannot go to emergency
-            CabControls[(new CabViewControlType(CABViewControlTypes.TRAIN_BRAKE), -1)] = Throttle;      // Train break
+            // TODO: Will be digital, but OS only allows it analog
+            //CabControls[(new CabViewControlType(CABViewControlTypes.TRAIN_BRAKE), -1)] = Throttle;      // Train break
             
             Active = true;
         }
