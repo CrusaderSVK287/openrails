@@ -139,7 +139,11 @@ namespace Orts.Viewer3D
              * Engine brake 0-anything really. For now it will be the max value
              */
             AThrottle.Value = PercentageTrim(report.AxisThrottle, 2400, 4090) / 100; // MSTSLocomitveViewer.cs:253 for some reason does *100 again
-            ADirection.Value = PercentageTrim(report.AxisDirection, 10, 1600) / 100;
+            float directionRawPercentage = PercentageTrim(report.AxisDirection, 10, 1600); // there is no 100 here because we dont deal with %
+            // 0-33 = reverse, 34-65 = neutral, 66-100 = forward.
+            ADirection.Value =  (directionRawPercentage <= 25) ? -1.0f : 
+                                (directionRawPercentage >= 75) ? 1.0f : 0.0f;
+            
             AEngineBreak.Value = PercentageTrim(report.AxisEngineBrake, 10, 4090) / 100;
             // Train break is digital in HID, but analog in ORTS
             // Because of physical limitations of the lever part, no emergency break support will be added.
