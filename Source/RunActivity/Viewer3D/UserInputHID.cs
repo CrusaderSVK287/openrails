@@ -6,6 +6,8 @@ using Orts.Viewer3D.Processes;
 using ORTS.Common.Input;
 using System.Windows.Forms;
 using static Swan.Terminal;
+using Orts.Viewer3D.Popups;
+using Orts.Common;
 
 
 namespace Orts.Viewer3D
@@ -17,10 +19,28 @@ namespace Orts.Viewer3D
 
         //         [GetString("Display Track Monitor Window")] DisplayTrackMonitorWindow,
 
-        public ExternalDeviceCabControl Throttle = new ExternalDeviceCabControl();       // 0 to 100
         public readonly byte[] UserCommands = new byte[Enum.GetNames(typeof(UserCommand)).Length];
-        HIDSwitch TrackMonitor;
-        HIDButton ButtonGamePause;
+
+        public ExternalDeviceCabControl AThrottle = new ExternalDeviceCabControl();       // 0 to 100
+        public ExternalDeviceCabControl ADirection = new ExternalDeviceCabControl();       // 0 to 100
+        public ExternalDeviceCabControl AEngineBreak = new ExternalDeviceCabControl();       // 0 to 100
+        // Train break is implemented as digital in HID, but analog in ORTS
+        public ExternalDeviceCabControl ATrainBreak = new ExternalDeviceCabControl();       // 0 to 100
+
+        HIDSwitch SwPantograph1;
+        HIDSwitch SwPantograph2;
+
+        // Headlights are a switch but are implemented like buttons in ORTS
+        HIDButton BHeadlightsIncrease;
+        HIDButton BHeadlightsDecrease;
+        // View is weird. I have a 3-state switch for it but its going to emulate buttons
+        HIDButton BView1;
+        HIDButton BView2;
+        HIDButton BView3;
+
+        HIDSwitch SwTrackMonitor;
+        HIDSwitch SwNextStation;
+        HIDButton BPause;
 
         public UserInputHIDState(Game game)
         {
@@ -33,30 +53,62 @@ namespace Orts.Viewer3D
                 return;
             }
 
-            // Switches
-            TrackMonitor = new HIDSwitch();
-            //RegisterCommand(UserCommand.DisplayTrackMonitorWindow, TrackMonitor);                     // F4 window
-            //RegisterCommand(UserCommand.DisplayNextStationWindow, TrackMonitor);                        // F10 window
-            //RegisterCommand(UserCommand.ControlPantograph1, TrackMonitor);                            // pantograph1
-            //RegisterCommand(UserCommand.ControlPantograph2, TrackMonitor);                              // pantograph2
-            // Buttons
-            ButtonGamePause = new HIDButton();
-            //RegisterCommand(UserCommand.GamePauseMenu, ButtonGamePause);                              // Pause / close activity window
-            //TODO: not yet sure, but I probably want 3-state switch and simulate the button clicking. But can probably be done from rpi
-            //RegisterCommand(UserCommand.ControlHeadlightIncrease, ButtonGamePause);
-            //RegisterCommand(UserCommand.ControlHeadlightDecrease, ButtonGamePause);
+            // Initialize controls. Some controls are actually switching, but OR only supports buttons, so we emulate switches with virtual buttons
+            // for example the View is a single 3-state switch, and depending on its position, a different button is "pressed" on update
+            // Similiar with Train Brake. Its a 4-state switch, but in OR its analog, so we read digital input and convert to analog percentage
 
-            // Camera controls using 3 state switch... probably will emulate buttons depending on input
-            //RegisterCommand(UserCommand.CameraOutsideFront, ButtonGamePause);
-            //RegisterCommand(UserCommand.CameraCab, ButtonGamePause);
-            //RegisterCommand(UserCommand.CameraSpecialTracksidePoint, ButtonGamePause);
-
-            //CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = Throttle;       // Throttle
-            //CabControls[(new CabViewControlType(CABViewControlTypes.DIRECTION), -1)] = Throttle;      // Direction
-            //CabControls[(new CabViewControlType(CABViewControlTypes.ENGINE_BRAKE), -1)] = Throttle;   // Engine break
-            // TODO: Will be digital, but OS only allows it analog
-            //CabControls[(new CabViewControlType(CABViewControlTypes.TRAIN_BRAKE), -1)] = Throttle;      // Train break
+            /*
+            Illustration on how the panel is laid out:
+            .___________________________________________.
+            |  P   V N T                           EB   |
+            |                DIR       THR              |
+            |  H   P1 P2                           TB   | 
+            |___________________________________________|
             
+            P  = Pause button
+            V  = View switch (3 positions)
+            N  = Next Station window switch
+            T  = Track Monitor window switch
+            EB = Engine Brake lever
+            DIR= Direction lever
+            THR= Throttle lever
+            H  = Headlight control (2 positions)
+            P1 = Pantograph 1 control
+            P2 = Pantograph 2 control
+            TB = Train Brake lever
+             */
+
+            // Switches
+            SwPantograph1 = new HIDSwitch();
+            SwPantograph2 = new HIDSwitch();
+            SwNextStation = new HIDSwitch();
+            SwTrackMonitor = new HIDSwitch();
+            RegisterCommand(UserCommand.ControlPantograph1, SwPantograph1);                        // pantograph1
+            RegisterCommand(UserCommand.ControlPantograph2, SwPantograph2);                        // pantograph2
+            RegisterCommand(UserCommand.DisplayNextStationWindow, SwNextStation);                  // F10 window
+            RegisterCommand(UserCommand.DisplayTrackMonitorWindow, SwTrackMonitor);                // F4 window
+
+            // Buttons
+            BPause = new HIDButton();
+            BView1 = new HIDButton();
+            BView2 = new HIDButton();
+            BView3 = new HIDButton();
+            RegisterCommand(UserCommand.GamePauseMenu, BPause);                                    // Pause / close activity window
+            RegisterCommand(UserCommand.CameraCab, BView1);                                        // Cab view
+            RegisterCommand(UserCommand.CameraOutsideFront, BView2);                               // Outside front view
+            RegisterCommand(UserCommand.CameraSpecialTracksidePoint, BView3);                      // Special trackside point view
+
+            BHeadlightsIncrease = new HIDButton();
+            BHeadlightsDecrease = new HIDButton();
+            RegisterCommand(UserCommand.ControlHeadlightIncrease, BHeadlightsIncrease);            // Headlight increase
+            RegisterCommand(UserCommand.ControlHeadlightDecrease, BHeadlightsDecrease);            // Headlight decrease
+
+            CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = AThrottle;       // Throttle
+            CabControls[(new CabViewControlType(CABViewControlTypes.DIRECTION), -1)] = ADirection;      // Direction
+            CabControls[(new CabViewControlType(CABViewControlTypes.ENGINE_BRAKE), -1)] = AEngineBreak;   // Engine break
+            // TODO: Will be digital, but OR only allows it analog
+            CabControls[(new CabViewControlType(CABViewControlTypes.TRAIN_BRAKE), -1)] = ATrainBreak;      // Train break
+
             Active = true;
         }
         public void Update()
@@ -65,64 +117,66 @@ namespace Orts.Viewer3D
             {
                 return; // Device not connected or not enabled
             }
-            HIDDeviceReport report = Device.ReadInput();
+            HIDDeviceReport report;
+            try
+            {
+                report = Device.ReadInput();
+            }
+            catch (Exception ex)
+            {
+                // Something went wrong while reading the device.
+                // Log the error
+                Console.WriteLine($"Error reading HID device: {ex.Message}");
+                return;
+            } 
 
-            if (report is null) return;
+            if (report == null) return;
 
-            // Analog controls
-            Throttle.Value = Percentage(report.AxisThrottle, 4096) / 100; // MSTSLocomitveViewer.cs:253 for some reason does *100 again
+            /*
+             * Minimum is 0, maximum is 4096. Good idea to add some deadzone near the edges of the range
+             * Direction 10-1600 
+             * Throttle 2400-4090
+             * Engine brake 0-anything really. For now it will be the max value
+             */
+            AThrottle.Value = PercentageTrim(report.AxisThrottle, 2400, 4090) / 100; // MSTSLocomitveViewer.cs:253 for some reason does *100 again
+            ADirection.Value = PercentageTrim(report.AxisDirection, 10, 1600) / 100;
+            AEngineBreak.Value = PercentageTrim(report.AxisEngineBrake, 10, 4090) / 100;
+            // Train break is digital in HID, but analog in ORTS
+            // Because of physical limitations of the lever part, no emergency break support will be added.
+            // Calibrate this, maybe I will add support for emergency break, idk yet
+            ATrainBreak.Value = report.TrainBrake == 1 ? 0 :
+                                report.TrainBrake == 2 ? 30 :
+                                report.TrainBrake == 3 ? 70 : 0;
+                                //report.TrainBrake == 0 ? 100 : 0;
+            // This is because there is a chance that the lever reports 0 while switching between 1 and 2 for example.
+            // So only change to 100 if previous value was 70, or if it already was 100.
+            if (report.TrainBrake == 0 && (ATrainBreak.Value == 70 || ATrainBreak.Value == 100))
+                ATrainBreak.Value = 100;
 
-            // HID Switches
-            //TrackMonitor.Update(report.ButtonState);
-            // HID Buttons
-            ButtonGamePause.Update(report.ButtonState);
+            BPause.Update(report.Pause);
+            SwTrackMonitor.Update(report.TrackMonitor);
+            SwNextStation.Update(report.NextStation);
+
+            BHeadlightsIncrease.Update(report.Headlights);
+            BHeadlightsDecrease.Update(!report.Headlights);
+
+            SwPantograph1.Update(report.Panto1);
+            SwPantograph2.Update(report.Panto2);
+            // View switch emulated as buttons
+            BView1.Update(report.View == 0);
+            BView2.Update(report.View == 1);
+            BView3.Update(report.View == 2);
         }
         public void Activate()
         {
     
         }
-        private static float Percentage(UInt16 x, UInt16 max)
+        private static float PercentageTrim(int value, int min, int max)
         {
-            if (max == 0)
-                return 0; // Avoid division by zero
-
-            float rv = ((float)x / max) * 100f;
-            return rv;
+            if (value < min) value = min;
+            if (value > max) value = max;
+            return (value - min) * 100 / (max - min);
         }
-
-
-        private static float Percentage(float x, float x0, float x100)
-        {
-            float p = 100 * (x - x0) / (x100 - x0);
-            if (p < 0)
-                return 0;
-            if (p > 100)
-                return 100;
-            return p;
-        }
-
-        private static float Percentage(byte value, (byte p0, byte p100) range)
-        {
-            float p = 100 * (value - range.p0) / (range.p100 - range.p0);
-            if (p < 0)
-                return 0;
-            if (p > 100)
-                return 100;
-            return p;
-        }
-
-        private static float Percentage(byte value, (byte p100Minus, byte p0, byte p100Plus) range)
-        {
-            float p = 100 * (value - range.p0) / (range.p100Plus - range.p0);
-            if (p < 0)
-                p = 100 * (value - range.p0) / (range.p0 - range.p100Minus);
-            if (p < -100)
-                return -100;
-            if (p > 100)
-                return 100;
-            return p;
-        }
-
     }
 
     public class HIDButton : ExternalDeviceButton
