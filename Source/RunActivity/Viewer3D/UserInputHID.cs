@@ -17,7 +17,10 @@ namespace Orts.Viewer3D
         public bool Active { get; private set; }
         private readonly HIDControllerDevice Device;
 
-        //         [GetString("Display Track Monitor Window")] DisplayTrackMonitorWindow,
+        private int _lastTrainBrakeRaw = -1;
+        private int _trainBrakeStableCount = 0;
+
+        private int StableThreshold = 30;
 
         public readonly byte[] UserCommands = new byte[Enum.GetNames(typeof(UserCommand)).Length];
 
@@ -106,7 +109,6 @@ namespace Orts.Viewer3D
             CabControls[(new CabViewControlType(CABViewControlTypes.THROTTLE), -1)] = AThrottle;       // Throttle
             CabControls[(new CabViewControlType(CABViewControlTypes.DIRECTION), -1)] = ADirection;      // Direction
             CabControls[(new CabViewControlType(CABViewControlTypes.ENGINE_BRAKE), -1)] = AEngineBreak;   // Engine break
-            // TODO: Will be digital, but OR only allows it analog
             CabControls[(new CabViewControlType(CABViewControlTypes.TRAIN_BRAKE), -1)] = ATrainBreak;      // Train break
 
             Active = true;
@@ -145,25 +147,42 @@ namespace Orts.Viewer3D
                                 (directionRawPercentage >= 75) ? 1.0f : 0.0f;
             
             AEngineBreak.Value = PercentageTrim(report.AxisEngineBrake, 10, 4090) / 100;
-            // Train break is digital in HID, but analog in ORTS
-            // Because of physical limitations of the lever part, no emergency break support will be added.
-            // Calibrate this, maybe I will add support for emergency break, idk yet
-            ATrainBreak.Value = report.TrainBrake == 1 ? 0 :
-                                report.TrainBrake == 2 ? 30 :
-                                report.TrainBrake == 3 ? 70 : 0;
-                                //report.TrainBrake == 0 ? 100 : 0;
-            // This is because there is a chance that the lever reports 0 while switching between 1 and 2 for example.
-            // So only change to 100 if previous value was 70, or if it already was 100.
-            if (report.TrainBrake == 0 && (ATrainBreak.Value == 70 || ATrainBreak.Value == 100))
-                ATrainBreak.Value = 100;
 
-            BPause.Update(report.Pause);
+            // --- stabilize raw switch value ---
+            if (report.TrainBrake == _lastTrainBrakeRaw)
+            {
+                _trainBrakeStableCount++;
+            }
+            else
+            {
+                _lastTrainBrakeRaw = report.TrainBrake;
+                _trainBrakeStableCount = 1;
+            }
+
+            // Only accept change when stable
+            if (_trainBrakeStableCount >= StableThreshold)
+            {
+                float TrainBrakeValue = ATrainBreak.Value;
+
+                switch (report.TrainBrake)
+                {
+                    case 0: TrainBrakeValue = 2.0f; break;
+                    case 1: TrainBrakeValue = 0f; break;
+                    case 2: TrainBrakeValue = 0.30f; break;
+                    case 3: TrainBrakeValue = 0.70f; break;
+                }
+
+                ATrainBreak.Value = TrainBrakeValue;
+            }
+
+            BPause.Update(report.Pause); 
             SwTrackMonitor.Update(report.TrackMonitor);
             SwNextStation.Update(report.NextStation);
 
             BHeadlightsIncrease.Update(report.Headlights);
             BHeadlightsDecrease.Update(!report.Headlights);
 
+            // TODO: get info on panto state: if it doesnt match up, send a signal anyway so it matches
             SwPantograph1.Update(report.Panto1);
             SwPantograph2.Update(report.Panto2);
             // View switch emulated as buttons
@@ -212,6 +231,4 @@ namespace Orts.Viewer3D
             }
         }
     }
-
 }
-
