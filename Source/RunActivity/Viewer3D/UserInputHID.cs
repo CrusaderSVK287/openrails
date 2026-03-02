@@ -9,6 +9,9 @@ using static Swan.Terminal;
 using Orts.Viewer3D.Popups;
 using Orts.Common;
 
+// For HIDPantographStateService
+using Orts.Simulation.Utilities;
+
 
 namespace Orts.Viewer3D
 {
@@ -112,6 +115,7 @@ namespace Orts.Viewer3D
             CabControls[(new CabViewControlType(CABViewControlTypes.TRAIN_BRAKE), -1)] = ATrainBreak;      // Train break
 
             Active = true;
+            HIDPantographStateService.Instance.Enable();
         }
         public void Update()
         {
@@ -183,6 +187,8 @@ namespace Orts.Viewer3D
             BHeadlightsDecrease.Update(!report.Headlights);
 
             // TODO: get info on panto state: if it doesnt match up, send a signal anyway so it matches
+            HIDPantographStateService.Instance.SetPantoState(report.Panto1, 1);
+            HIDPantographStateService.Instance.SetPantoState(report.Panto2, 2);
             SwPantograph1.Update(report.Panto1);
             SwPantograph2.Update(report.Panto2);
             // View switch emulated as buttons
