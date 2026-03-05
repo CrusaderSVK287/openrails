@@ -250,7 +250,8 @@ namespace Orts.Viewer3D.RollingStock
                     {
                         // Some cab controls need specific handling for better results
                         case CABViewControlTypes.THROTTLE:
-                            Locomotive.SetThrottlePercentWithSound(val * 100);
+                            //Locomotive.SetThrottlePercentWithSound(val * 100);
+                            Locomotive.SetThrottlePercent(val * 100); // The sound is really annoying when using the hid, since throttle % can wiggle slightly depending on reading
                             break;
                         case CABViewControlTypes.DIRECTION:
                             if (Locomotive is MSTSSteamLocomotive steam)

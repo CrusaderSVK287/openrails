@@ -23,7 +23,11 @@ namespace Orts.Viewer3D
         private int _lastTrainBrakeRaw = -1;
         private int _trainBrakeStableCount = 0;
 
-        private int StableThreshold = 30;
+        private DateTime? _pressStartTime = null;
+        private bool _longPressTriggered = false;
+        private const int LongPressMilliseconds = 2000;
+        
+        private readonly int StableThreshold = 30;
 
         public readonly byte[] UserCommands = new byte[Enum.GetNames(typeof(UserCommand)).Length];
 
@@ -48,14 +52,26 @@ namespace Orts.Viewer3D
         HIDSwitch SwNextStation;
         HIDButton BPause;
 
+        // ctrl + m, switched the mode from auto-signal to manual etc, to allow recovery from running red signal etc.
+        HIDButton BChangeTCSMode;
+
         public UserInputHIDState(Game game)
         {
             Device = HIDControllerDevice.Instance;
-            
+
             // Display information that the device is not enable, probably failed to connect
             if (Device is null || !Device.Initialize())
             {
-                MessageBox.Show("HID Controller not enabled. Please check your settings.", "HID Controller Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (MessageBox.Show("EN: HID Controller not detected. The game will start as normal but you will not be able to " +
+                    "connect the device mid-game. Plug in the device and restart the game to use it.\n\n" +
+                    "SK: HID Ovládač nebol nájdený. Hra sa spustí normálne, ale zariadenie nebude možné pripojiť počas hry. " +
+                    "Pripojte zariadenie a reštartujte hru, aby ste ho mohli používať.", "HID Controller Error", 
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Exclamation)
+                    == DialogResult.Cancel)
+                {
+                    Environment.Exit(1);
+                }
+
                 return;
             }
 
@@ -96,10 +112,12 @@ namespace Orts.Viewer3D
 
             // Buttons
             BPause = new HIDButton();
+            BChangeTCSMode = new HIDButton();
             BView1 = new HIDButton();
             BView2 = new HIDButton();
             BView3 = new HIDButton();
             RegisterCommand(UserCommand.GamePauseMenu, BPause);                                    // Pause / close activity window
+            RegisterCommand(UserCommand.GameSwitchManualMode, BChangeTCSMode);                     // Change TCS signal mode (ctrl + m)
             RegisterCommand(UserCommand.CameraCab, BView1);                                        // Cab view
             RegisterCommand(UserCommand.CameraOutsideFront, BView2);                               // Outside front view
             RegisterCommand(UserCommand.CameraSpecialTracksidePoint, BView3);                      // Special trackside point view
@@ -153,10 +171,7 @@ namespace Orts.Viewer3D
             AEngineBreak.Value = PercentageTrim(report.AxisEngineBrake, 10, 4090) / 100;
 
             // --- stabilize raw switch value ---
-            if (report.TrainBrake == _lastTrainBrakeRaw)
-            {
-                _trainBrakeStableCount++;
-            }
+            if (report.TrainBrake == _lastTrainBrakeRaw) { _trainBrakeStableCount++; }
             else
             {
                 _lastTrainBrakeRaw = report.TrainBrake;
@@ -179,7 +194,43 @@ namespace Orts.Viewer3D
                 ATrainBreak.Value = TrainBrakeValue;
             }
 
-            BPause.Update(report.Pause); 
+
+            if (report.Pause)
+            {
+                if (_pressStartTime == null)
+                {
+                    _pressStartTime = DateTime.UtcNow;
+                    _longPressTriggered = false;
+                }
+
+                if (!_longPressTriggered &&
+                    (DateTime.UtcNow - _pressStartTime.Value).TotalMilliseconds >= LongPressMilliseconds)
+                {
+                    BChangeTCSMode.Update(true);
+                    _longPressTriggered = true;    // Prevent retrigger
+                }
+            }
+            else
+            {
+                // Button released
+                if (_pressStartTime != null)
+                {
+                    // If long press never triggered → short press
+                    if (!_longPressTriggered)
+                    {
+                        BPause.Update(true);
+                    }
+
+                    _pressStartTime = null;
+                    _longPressTriggered = false;
+                } else
+                {
+                    // Ensure buttons are reset after the button was released
+                    BChangeTCSMode.Update(false);
+                    BPause.Update(false);
+                }
+            }
+
             SwTrackMonitor.Update(report.TrackMonitor);
             SwNextStation.Update(report.NextStation);
 
@@ -196,10 +247,7 @@ namespace Orts.Viewer3D
             BView2.Update(report.View == 1);
             BView3.Update(report.View == 2);
         }
-        public void Activate()
-        {
-    
-        }
+
         private static float PercentageTrim(int value, int min, int max)
         {
             if (value < min) value = min;
