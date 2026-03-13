@@ -22,6 +22,7 @@ using Orts.Simulation.Physics;
 using Orts.Simulation.RollingStocks;
 using Orts.Simulation.RollingStocks.SubSystems;
 using Orts.Simulation.RollingStocks.SubSystems.PowerSupplies;
+using Orts.Simulation.Utilities;
 using ORTS.Common;
 using ORTS.Scripting.Api;
 using System;
@@ -251,6 +252,17 @@ namespace Orts.Common
 
         public override void Redo()
         {
+            // Basically, if what HID reports is different than the toState, it means there is a mismatch.
+            // By skipping the command, we reallign it again
+            if (HIDPantographStateService.Instance.Enabled())
+            {
+                bool pantoState = HIDPantographStateService.Instance.GetPantoState(item);
+                if (pantoState != ToState)
+                {
+                    return;
+                }
+            }
+
             Receiver?.HandleEvent((ToState ? PowerSupplyEvent.RaisePantograph : PowerSupplyEvent.LowerPantograph), item);
         }
 

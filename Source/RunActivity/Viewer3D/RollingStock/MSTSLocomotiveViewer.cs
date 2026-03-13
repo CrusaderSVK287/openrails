@@ -237,7 +237,7 @@ namespace Orts.Viewer3D.RollingStock
             if (UserInput.IsPressed(UserCommand.DebugResetWheelSlip)) { Locomotive.Train.SignalEvent(Event._ResetWheelSlip); }
             if (UserInput.IsPressed(UserCommand.DebugToggleAdvancedAdhesion)) { Locomotive.Train.SignalEvent(Event._ResetWheelSlip); Locomotive.Simulator.UseAdvancedAdhesion = !Locomotive.Simulator.UseAdvancedAdhesion; }
 
-            ExternalDeviceState[] externalDevices = {UserInput.RDState, UserInput.WebDeviceState};
+            ExternalDeviceState[] externalDevices = {UserInput.RDState, UserInput.WebDeviceState, UserInput.HIDState};
             foreach (var external in externalDevices)
             {
                 if (external == null) continue;
@@ -250,7 +250,8 @@ namespace Orts.Viewer3D.RollingStock
                     {
                         // Some cab controls need specific handling for better results
                         case CABViewControlTypes.THROTTLE:
-                            Locomotive.SetThrottlePercentWithSound(val * 100);
+                            //Locomotive.SetThrottlePercentWithSound(val * 100);
+                            Locomotive.SetThrottlePercent(val * 100); // The sound is really annoying when using the hid, since throttle % can wiggle slightly depending on reading
                             break;
                         case CABViewControlTypes.DIRECTION:
                             if (Locomotive is MSTSSteamLocomotive steam)

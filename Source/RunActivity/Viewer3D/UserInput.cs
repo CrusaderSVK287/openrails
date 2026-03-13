@@ -51,6 +51,7 @@ namespace Orts.Viewer3D
         public static int MouseSpeedX;
         public static int MouseSpeedY;
         public static RailDriverState RDState;
+        public static UserInputHIDState HIDState;
         public static ExternalDeviceState WebDeviceState = new ExternalDeviceState();
 
         static InputSettings InputSettings;
@@ -61,11 +62,13 @@ namespace Orts.Viewer3D
         public static void Initialize(Game game)
         {
             RDState = new RailDriverState(game);
+            HIDState = new UserInputHIDState(game);
         }
 
         public static void Update(Game game)
         {
             RDState.Update();
+            HIDState.Update();
             if (Orts.MultiPlayer.MPManager.IsMultiPlayer() && Orts.MultiPlayer.MPManager.Instance().ComposingText) return;
             if (InputSettings == null) InputSettings = game.Settings.Input;
             LastKeyboardState = KeyboardState;
@@ -144,6 +147,7 @@ namespace Orts.Viewer3D
         public static void Handled()
         {
             RDState?.Handled();
+            HIDState?.Handled();
             WebDeviceState?.Handled();
         }
 
@@ -151,6 +155,8 @@ namespace Orts.Viewer3D
         {
             if (ComposingMessage == true) return false;
             if (RDState != null && RDState.IsPressed(command))
+                return true;
+            if (HIDState != null && HIDState.IsPressed(command))
                 return true;
             var setting = InputSettings.Commands[(int)command];
             return (setting.IsKeyDown(KeyboardState) && !setting.IsKeyDown(LastKeyboardState)) ||
@@ -162,6 +168,9 @@ namespace Orts.Viewer3D
             if (ComposingMessage == true) return false;
             if (RDState != null && RDState.IsReleased(command))
                 return true;
+            if (HIDState != null && HIDState.IsReleased(command))
+                return true;
+
             var setting = InputSettings.Commands[(int)command];
             return (!setting.IsKeyDown(KeyboardState) && setting.IsKeyDown(LastKeyboardState)) ||
                 SwitchPanelModule.IsReleased(command);
@@ -172,6 +181,9 @@ namespace Orts.Viewer3D
             if (ComposingMessage == true) return false;
             if (RDState != null && RDState.IsDown(command))
                 return true;
+            if (HIDState != null && HIDState.IsDown(command))
+                return true;
+
             var setting = InputSettings.Commands[(int)command];
             return setting.IsKeyDown(KeyboardState);
         }

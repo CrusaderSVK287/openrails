@@ -970,7 +970,17 @@ namespace Orts.Viewer3D
                 ComposeMessageWindow.InitMessage();
             }
             if ((MPManager.IsMultiPlayer() || (Settings.MultiplayerClient && MPManager.Simulator.Confirmer != null)) && UserInput.IsPressed(UserCommand.DisplayMultiPlayerWindow)){ MultiPlayerWindow.Visible = !MultiPlayerWindow.Visible; }
-            if (!MPManager.IsMultiPlayer() && UserInput.IsPressed(UserCommand.GamePauseMenu)) { QuitWindow.Visible = Simulator.Paused = !QuitWindow.Visible; }
+            if (!MPManager.IsMultiPlayer() && UserInput.IsPressed(UserCommand.GamePauseMenu)) 
+            {
+                if (ActivityWindow.Visible)
+                {
+                    ActivityWindow.CloseBox();
+                    if (Simulator.Paused) Simulator.Paused = false;
+                }
+                else 
+                    QuitWindow.Visible = Simulator.Paused = !QuitWindow.Visible;
+                
+            }
             if (MPManager.IsMultiPlayer() && UserInput.IsPressed(UserCommand.GamePauseMenu)) { if (Simulator.Confirmer != null) Simulator.Confirmer.Information(Viewer.Catalog.GetString("In MP, use Alt-F4 to quit directly")); }
 
             if (UserInput.IsPressed(UserCommand.GameFullscreen)) { RenderProcess.ToggleFullScreen(); }
