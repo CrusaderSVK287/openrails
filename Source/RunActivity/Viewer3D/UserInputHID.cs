@@ -168,7 +168,7 @@ namespace Orts.Viewer3D
             ADirection.Value =  (directionRawPercentage <= 25) ? -1.0f : 
                                 (directionRawPercentage >= 75) ? 1.0f : 0.0f;
             
-            AEngineBreak.Value = PercentageTrim(report.AxisEngineBrake, 10, 4090) / 100;
+            AEngineBreak.Value = PercentageTrim(report.AxisEngineBrake, 100, 1100) / 100;
 
             // --- stabilize raw switch value ---
             if (report.TrainBrake == _lastTrainBrakeRaw) { _trainBrakeStableCount++; }
